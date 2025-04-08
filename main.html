@@ -14,12 +14,53 @@
       display: block;
       margin-bottom: 10px;
     }
-    textarea {
+    textarea, input[type="text"] {
       width: 100%;
+      margin-bottom: 10px;
+    }
+    textarea {
       height: 60px;
     }
-    button {
+    button, input[type="number"] {
       margin: 5px;
+    }
+    .time-inputs {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 10px 0;
+    }
+    #annotationsList {
+      margin-top: 20px;
+      border-top: 1px solid #ccc;
+      padding-top: 10px;
+    }
+    .annotation-item {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .annotation-time {
+      cursor: pointer;
+      color: #007bff;
+      text-decoration: underline;
+    }
+    .timeline-mark {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background-color: red;
+      cursor: ew-resize;
+    }
+    .timeline-container {
+      position: relative;
+      width: 100%;
+      max-width: 800px;
+      height: 4px;
+      background-color: #ccc;
+      margin-top: -6px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -27,61 +68,218 @@
   <h1>Video Annotation Tool</h1>
   <input type="file" id="videoUpload" accept="video/mp4"><br><br>
   <video id="videoPlayer" controls></video>
+  <div class="timeline-container" id="timelineContainer"></div>
   <div>
     <button onclick="setStart()">Set Start</button>
     <button onclick="setEnd()">Set End</button>
-    <br><br>
-    <label for="annotation">Annotation:</label><br>
-    <textarea id="annotation"></textarea><br>
+    <div class="time-inputs">
+      <label>Start Time:</label>
+      <input type="number" id="startInput" step="0.01" min="0">
+      <label>End Time:</label>
+      <input type="number" id="endInput" step="0.01" min="0">
+    </div>
+    <label for="commandAction">Command Action:</label><br>
+    <input type="text" id="commandAction"><br>
+    <label for="reasoning">Reasoning:</label><br>
+    <textarea id="reasoning"></textarea><br>
     <button onclick="saveAnnotation()">Save Annotation</button>
     <button onclick="downloadAnnotations()">Download Annotations</button>
+    <br><br>
+    <label for="jsonUpload">Load Previous Annotations:</label>
+    <input type="file" id="jsonUpload" accept="application/json">
   </div>
   <pre id="output"></pre>
+  <div id="annotationsList"></div>
 
   <script>
     const video = document.getElementById('videoPlayer');
     const fileInput = document.getElementById('videoUpload');
+    const jsonUpload = document.getElementById('jsonUpload');
+    const startInput = document.getElementById('startInput');
+    const endInput = document.getElementById('endInput');
+    const commandAction = document.getElementById('commandAction');
+    const reasoningText = document.getElementById('reasoning');
+    const annotationsList = document.getElementById('annotationsList');
+    const timelineContainer = document.getElementById('timelineContainer');
+
     let startTime = null;
     let endTime = null;
     let annotations = [];
+    let videoFilename = 'video';
 
     fileInput.addEventListener('change', function () {
       const file = this.files[0];
       if (file) {
         const url = URL.createObjectURL(file);
         video.src = url;
+        videoFilename = file.name.replace(/\.[^/.]+$/, "");
+      }
+    });
+
+    jsonUpload.addEventListener('change', function () {
+      const file = this.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (Array.isArray(data.annotations)) {
+              annotations = data.annotations;
+              updateAnnotationDisplay();
+              alert('Annotations loaded successfully.');
+            } else {
+              alert('Invalid JSON format. Expected an object with an "annotations" array.');
+            }
+          } catch (err) {
+            alert('Error reading JSON file: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
       }
     });
 
     function setStart() {
       startTime = video.currentTime;
-      alert(`Start time set at ${startTime.toFixed(2)} seconds`);
+      startInput.value = startTime.toFixed(2);
+      renderTemporaryMarker(startTime, 'green');
     }
 
     function setEnd() {
       endTime = video.currentTime;
-      alert(`End time set at ${endTime.toFixed(2)} seconds`);
+      endInput.value = endTime.toFixed(2);
+      renderTemporaryMarker(endTime, 'red');
+    }
+
+    function renderTemporaryMarker(time, color) {
+      const duration = video.duration || 1;
+      const percent = (time / duration) * 100;
+      const marker = document.createElement('div');
+      marker.className = 'timeline-mark';
+      marker.style.left = `${percent}%`;
+      marker.style.backgroundColor = color;
+      timelineContainer.appendChild(marker);
+      setTimeout(() => marker.remove(), 2000);
     }
 
     function saveAnnotation() {
-      if (startTime == null || endTime == null) {
+      const action = commandAction.value.trim();
+      const reasoning = reasoningText.value.trim();
+      const startVal = parseFloat(startInput.value);
+      const endVal = parseFloat(endInput.value);
+
+      if (isNaN(startVal) || isNaN(endVal)) {
         alert('Please set both start and end times.');
         return;
       }
-      const note = document.getElementById('annotation').value.trim();
-      if (!note) {
-        alert('Please enter an annotation.');
+
+      if (!action || !reasoning) {
+        alert('Please enter both command action and reasoning.');
         return;
       }
+
       const annotation = {
-        start: parseFloat(startTime.toFixed(2)),
-        end: parseFloat(endTime.toFixed(2)),
-        annotation: note
+        start: startVal,
+        end: endVal,
+        commandAction: action,
+        reasoning: reasoning
       };
+
       annotations.push(annotation);
-      document.getElementById('output').textContent = JSON.stringify({ annotations }, null, 2);
-      document.getElementById('annotation').value = '';
+      updateAnnotationDisplay();
+
+      commandAction.value = '';
+      reasoningText.value = '';
+      startInput.value = '';
+      endInput.value = '';
       startTime = endTime = null;
+    }
+
+    function updateAnnotationDisplay() {
+      document.getElementById('output').textContent = JSON.stringify({ annotations }, null, 2);
+      annotationsList.innerHTML = '';
+      timelineContainer.innerHTML = '';
+
+      const duration = video.duration || 1;
+      annotations.forEach((ann, index) => {
+        const div = document.createElement('div');
+        div.className = 'annotation-item';
+        div.innerHTML = `
+          <strong class="annotation-time" onclick="seekTo(${ann.start})">${index + 1}. ${ann.start} - ${ann.end} sec</strong><br>
+          <strong>Action:</strong> ${ann.commandAction}<br>
+          <strong>Reasoning:</strong> ${ann.reasoning}<br>
+          <button onclick="editAnnotation(${index})">Edit</button>
+          <button onclick="deleteAnnotation(${index})">Delete</button>
+        `;
+        annotationsList.appendChild(div);
+
+        const markStart = createDraggableMarker((ann.start / duration) * 100, 'green', (newTime) => {
+          ann.start = newTime * duration;
+          updateAnnotationDisplay();
+        });
+        const markEnd = createDraggableMarker((ann.end / duration) * 100, 'red', (newTime) => {
+          ann.end = newTime * duration;
+          updateAnnotationDisplay();
+        });
+
+        timelineContainer.appendChild(markStart);
+        timelineContainer.appendChild(markEnd);
+      });
+    }
+
+    function createDraggableMarker(leftPercent, color, onDragEnd) {
+      const marker = document.createElement('div');
+      marker.className = 'timeline-mark';
+      marker.style.left = `${leftPercent}%`;
+      marker.style.backgroundColor = color;
+
+      let isDragging = false;
+
+      marker.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        const rect = timelineContainer.getBoundingClientRect();
+        let newLeft = e.clientX - rect.left;
+        newLeft = Math.max(0, Math.min(rect.width, newLeft));
+        const newPercent = newLeft / rect.width;
+        marker.style.left = `${newPercent * 100}%`;
+      });
+
+      window.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        const rect = timelineContainer.getBoundingClientRect();
+        const newLeft = e.clientX - rect.left;
+        const newPercent = Math.max(0, Math.min(rect.width, newLeft)) / rect.width;
+        onDragEnd(newPercent);
+      });
+
+      return marker;
+    }
+
+    function seekTo(time) {
+      video.currentTime = time;
+      video.play();
+    }
+
+    function editAnnotation(index) {
+      const ann = annotations[index];
+      startInput.value = ann.start;
+      endInput.value = ann.end;
+      commandAction.value = ann.commandAction;
+      reasoningText.value = ann.reasoning;
+      annotations.splice(index, 1);
+      updateAnnotationDisplay();
+    }
+
+    function deleteAnnotation(index) {
+      if (confirm('Delete this annotation?')) {
+        annotations.splice(index, 1);
+        updateAnnotationDisplay();
+      }
     }
 
     function downloadAnnotations() {
@@ -90,7 +288,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'annotations.json';
+      a.download = `${videoFilename}_annotations.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
