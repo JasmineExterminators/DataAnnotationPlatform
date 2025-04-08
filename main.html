@@ -47,17 +47,18 @@
     }
     .timeline-mark {
       position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 4px;
+      top: -1px;
+      width: 12px;
+      height: 12px;
       background-color: red;
-      cursor: ew-resize;
+      cursor: pointer;
+      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
     }
     .timeline-container {
       position: relative;
       width: 100%;
       max-width: 800px;
-      height: 4px;
+      height: 10px;
       background-color: #ccc;
       margin-top: -6px;
       margin-bottom: 10px;
@@ -107,6 +108,9 @@
     let annotations = [];
     let videoFilename = 'video';
 
+    let inputStartMarker = null;
+    let inputEndMarker = null;
+
     fileInput.addEventListener('change', function () {
       const file = this.files[0];
       if (file) {
@@ -141,24 +145,13 @@
     function setStart() {
       startTime = video.currentTime;
       startInput.value = startTime.toFixed(2);
-      renderTemporaryMarker(startTime, 'green');
+      updateInputMarkers();
     }
 
     function setEnd() {
       endTime = video.currentTime;
       endInput.value = endTime.toFixed(2);
-      renderTemporaryMarker(endTime, 'red');
-    }
-
-    function renderTemporaryMarker(time, color) {
-      const duration = video.duration || 1;
-      const percent = (time / duration) * 100;
-      const marker = document.createElement('div');
-      marker.className = 'timeline-mark';
-      marker.style.left = `${percent}%`;
-      marker.style.backgroundColor = color;
-      timelineContainer.appendChild(marker);
-      setTimeout(() => marker.remove(), 2000);
+      updateInputMarkers();
     }
 
     function saveAnnotation() {
@@ -191,7 +184,11 @@
       reasoningText.value = '';
       startInput.value = '';
       endInput.value = '';
-      startTime = endTime = null;
+
+      // Reset markers
+      startTime = annotation.end;
+      endTime = video.duration;
+      updateInputMarkers();
     }
 
     function updateAnnotationDisplay() {
@@ -224,6 +221,31 @@
         timelineContainer.appendChild(markStart);
         timelineContainer.appendChild(markEnd);
       });
+
+      updateInputMarkers();
+    }
+
+    function updateInputMarkers() {
+      const duration = video.duration || 1;
+
+      if (inputStartMarker) inputStartMarker.remove();
+      if (inputEndMarker) inputEndMarker.remove();
+
+      if (!isNaN(startTime)) {
+        inputStartMarker = createDraggableMarker((startTime / duration) * 100, 'green', (newPercent) => {
+          startTime = newPercent * duration;
+          startInput.value = startTime.toFixed(2);
+        });
+        timelineContainer.appendChild(inputStartMarker);
+      }
+
+      if (!isNaN(endTime)) {
+        inputEndMarker = createDraggableMarker((endTime / duration) * 100, 'red', (newPercent) => {
+          endTime = newPercent * duration;
+          endInput.value = endTime.toFixed(2);
+        });
+        timelineContainer.appendChild(inputEndMarker);
+      }
     }
 
     function createDraggableMarker(leftPercent, color, onDragEnd) {
@@ -246,6 +268,7 @@
         newLeft = Math.max(0, Math.min(rect.width, newLeft));
         const newPercent = newLeft / rect.width;
         marker.style.left = `${newPercent * 100}%`;
+        video.currentTime = newPercent * video.duration;
       });
 
       window.addEventListener('mouseup', (e) => {
@@ -267,8 +290,10 @@
 
     function editAnnotation(index) {
       const ann = annotations[index];
-      startInput.value = ann.start;
-      endInput.value = ann.end;
+      startTime = ann.start;
+      endTime = ann.end;
+      startInput.value = startTime;
+      endInput.value = endTime;
       commandAction.value = ann.commandAction;
       reasoningText.value = ann.reasoning;
       annotations.splice(index, 1);
