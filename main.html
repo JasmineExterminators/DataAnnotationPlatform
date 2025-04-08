@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Annotation Tool</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    video {
+      width: 100%;
+      max-width: 800px;
+      display: block;
+      margin-bottom: 10px;
+    }
+    textarea {
+      width: 100%;
+      height: 60px;
+    }
+    button {
+      margin: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Video Annotation Tool</h1>
+  <input type="file" id="videoUpload" accept="video/mp4"><br><br>
+  <video id="videoPlayer" controls></video>
+  <div>
+    <button onclick="setStart()">Set Start</button>
+    <button onclick="setEnd()">Set End</button>
+    <br><br>
+    <label for="annotation">Annotation:</label><br>
+    <textarea id="annotation"></textarea><br>
+    <button onclick="saveAnnotation()">Save Annotation</button>
+    <button onclick="downloadAnnotations()">Download Annotations</button>
+  </div>
+  <pre id="output"></pre>
+
+  <script>
+    const video = document.getElementById('videoPlayer');
+    const fileInput = document.getElementById('videoUpload');
+    let startTime = null;
+    let endTime = null;
+    let annotations = [];
+
+    fileInput.addEventListener('change', function () {
+      const file = this.files[0];
+      if (file) {
+        const url = URL.createObjectURL(file);
+        video.src = url;
+      }
+    });
+
+    function setStart() {
+      startTime = video.currentTime;
+      alert(`Start time set at ${startTime.toFixed(2)} seconds`);
+    }
+
+    function setEnd() {
+      endTime = video.currentTime;
+      alert(`End time set at ${endTime.toFixed(2)} seconds`);
+    }
+
+    function saveAnnotation() {
+      if (startTime == null || endTime == null) {
+        alert('Please set both start and end times.');
+        return;
+      }
+      const note = document.getElementById('annotation').value.trim();
+      if (!note) {
+        alert('Please enter an annotation.');
+        return;
+      }
+      const annotation = {
+        start: parseFloat(startTime.toFixed(2)),
+        end: parseFloat(endTime.toFixed(2)),
+        annotation: note
+      };
+      annotations.push(annotation);
+      document.getElementById('output').textContent = JSON.stringify({ annotations }, null, 2);
+      document.getElementById('annotation').value = '';
+      startTime = endTime = null;
+    }
+
+    function downloadAnnotations() {
+      const dataStr = JSON.stringify({ annotations }, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'annotations.json';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
