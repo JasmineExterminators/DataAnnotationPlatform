@@ -117,6 +117,13 @@
         const url = URL.createObjectURL(file);
         video.src = url;
         videoFilename = file.name.replace(/\.[^/.]+$/, "");
+        video.onloadedmetadata = () => {
+          startTime = annotations.length ? annotations[annotations.length - 1].end : 0;
+          endTime = video.duration;
+          startInput.value = startTime.toFixed(2);
+          endInput.value = endTime.toFixed(2);
+          updateInputMarkers();
+        };
       }
     });
 
@@ -185,7 +192,6 @@
       startInput.value = '';
       endInput.value = '';
 
-      // Reset markers
       startTime = annotation.end;
       endTime = video.duration;
       updateInputMarkers();
@@ -197,6 +203,7 @@
       timelineContainer.innerHTML = '';
 
       const duration = video.duration || 1;
+
       annotations.forEach((ann, index) => {
         const div = document.createElement('div');
         div.className = 'annotation-item';
@@ -220,6 +227,15 @@
 
         timelineContainer.appendChild(markStart);
         timelineContainer.appendChild(markEnd);
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
+        overlay.style.left = `${(ann.start / duration) * 100}%`;
+        overlay.style.width = `${((ann.end - ann.start) / duration) * 100}%`;
+        timelineContainer.appendChild(overlay);
       });
 
       updateInputMarkers();
@@ -228,12 +244,19 @@
     function updateInputMarkers() {
       const duration = video.duration || 1;
 
-      if (inputStartMarker) inputStartMarker.remove();
-      if (inputEndMarker) inputEndMarker.remove();
+      if (inputStartMarker) {
+        inputStartMarker.remove();
+        inputStartMarker = null;
+      }
+      if (inputEndMarker) {
+        inputEndMarker.remove();
+        inputEndMarker = null;
+      }
 
       if (!isNaN(startTime)) {
         inputStartMarker = createDraggableMarker((startTime / duration) * 100, 'green', (newPercent) => {
           startTime = newPercent * duration;
+          video.currentTime = startTime;
           startInput.value = startTime.toFixed(2);
         });
         timelineContainer.appendChild(inputStartMarker);
@@ -242,6 +265,7 @@
       if (!isNaN(endTime)) {
         inputEndMarker = createDraggableMarker((endTime / duration) * 100, 'red', (newPercent) => {
           endTime = newPercent * duration;
+          video.currentTime = endTime;
           endInput.value = endTime.toFixed(2);
         });
         timelineContainer.appendChild(inputEndMarker);
@@ -258,6 +282,7 @@
 
       marker.addEventListener('mousedown', (e) => {
         isDragging = true;
+        video.pause();
         e.preventDefault();
       });
 
