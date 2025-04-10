@@ -201,6 +201,8 @@
       document.getElementById('output').textContent = JSON.stringify({ annotations }, null, 2);
       annotationsList.innerHTML = '';
       timelineContainer.innerHTML = '';
+      inputStartMarker = null;
+      inputEndMarker = null;
 
       const duration = video.duration || 1;
 
@@ -225,8 +227,8 @@
           updateAnnotationDisplay();
         });
 
-        timelineContainer.appendChild(markStart);
-        timelineContainer.appendChild(markEnd);
+        // timelineContainer.appendChild(markStart);
+        // timelineContainer.appendChild(markEnd);
 
         const overlay = document.createElement('div');
         overlay.style.position = 'absolute';

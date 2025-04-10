@@ -1,4 +1,4 @@
 # DataAnnotationPlatform
 
-grey out the parts alr annotated
-change arrows scrolls the video
+V grey out the parts alr annotated
+V change arrows scrolls the video
