@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Annotation Tool</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Data Annotation Tool</h1>
+      <div class="top-buttons">
+        <button onclick="saveAnnotations()">Save</button>
+        <button onclick="exportAnnotations()">Export</button>
+      </div>
+    </header>
+
+    <div class="video-section">
+      <video id="video" controls>
+        <source src="video-example-1.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      <div class="slider-container">
+        <div id="range-slider"></div>
+      </div>
+      <div class="time-labels">
+        <span id="start-time">0:00</span>
+        <span id="end-time">0:10</span>
+      </div>
+    </div>
+
+    <div class="annotation-inputs">
+      <label for="action-command">Action Command</label>
+      <input type="text" id="action-command" placeholder="e.g., pick up the block on the left">
+
+      <label for="reasoning">Reasoning</label>
+      <textarea id="reasoning" placeholder="e.g., We need to first pick up the block from the table before trying insertion"></textarea>
+
+      <button onclick="addSegment()">Add Segment</button>
+    </div>
+
+    <div class="segments-list">
+      <h3>Segments List</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Start</th>
+            <th>End</th>
+            <th>Action Command</th>
+          </tr>
+        </thead>
+        <tbody id="segments-table-body">
+          <!-- Segments will be appended here -->
+        </tbody>
+      </table>
+    </div>
+
+    <a id="download-link" style="display: none">Download JSON</a>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/noUiSlider/15.7.1/nouislider.min.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
