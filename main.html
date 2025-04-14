@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.6/dist/ffmpeg.min.js"></script>
   <meta charset="UTF-8">
   <title>Video Annotation Tool</title>
   <style>
@@ -52,7 +53,7 @@
       height: 12px;
       background-color: red;
       cursor: pointer;
-      clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
+      border-radius: 3px;
     }
     .timeline-container {
       position: relative;
@@ -122,6 +123,7 @@
           endTime = video.duration;
           startInput.value = startTime.toFixed(2);
           endInput.value = endTime.toFixed(2);
+          video.currentTime = startTime;
           updateInputMarkers();
         };
       }
@@ -189,11 +191,10 @@
 
       commandAction.value = '';
       reasoningText.value = '';
-      startInput.value = '';
-      endInput.value = '';
-
       startTime = annotation.end;
-      endTime = video.duration;
+      endTime = Math.min(startTime + 5, video.duration);
+      startInput.value = startTime.toFixed(2);
+      endInput.value = endTime.toFixed(2);
       updateInputMarkers();
     }
 
@@ -217,18 +218,6 @@
           <button onclick="deleteAnnotation(${index})">Delete</button>
         `;
         annotationsList.appendChild(div);
-
-        const markStart = createDraggableMarker((ann.start / duration) * 100, 'green', (newTime) => {
-          ann.start = newTime * duration;
-          updateAnnotationDisplay();
-        });
-        const markEnd = createDraggableMarker((ann.end / duration) * 100, 'red', (newTime) => {
-          ann.end = newTime * duration;
-          updateAnnotationDisplay();
-        });
-
-        // timelineContainer.appendChild(markStart);
-        // timelineContainer.appendChild(markEnd);
 
         const overlay = document.createElement('div');
         overlay.style.position = 'absolute';
@@ -271,6 +260,9 @@
           endInput.value = endTime.toFixed(2);
         });
         timelineContainer.appendChild(inputEndMarker);
+
+        updateActiveHighlight();
+        video.addEventListener('timeupdate', syncEndMarkerWithPlayback);
       }
     }
 
@@ -345,6 +337,33 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+    }
+
+    let highlightOverlay = null;
+
+    function updateActiveHighlight() {
+      if (highlightOverlay) highlightOverlay.remove();
+      const duration = video.duration || 1;
+      if (!isNaN(startTime) && !isNaN(endTime)) {
+        highlightOverlay = document.createElement('div');
+        highlightOverlay.style.position = 'absolute';
+        highlightOverlay.style.top = '0';
+        highlightOverlay.style.height = '100%';
+        highlightOverlay.style.backgroundColor = 'rgba(0, 255, 0, 0.3)';
+        highlightOverlay.style.left = `${(startTime / duration) * 100}%`;
+        highlightOverlay.style.width = `${((endTime - startTime) / duration) * 100}%`;
+        timelineContainer.appendChild(highlightOverlay);
+      }
+    }
+
+    function syncEndMarkerWithPlayback() {
+      if (!inputEndMarker || video.paused || video.ended) return;
+      const duration = video.duration || 1;
+      endTime = video.currentTime;
+      endInput.value = endTime.toFixed(2);
+      const percent = (endTime / duration) * 100;
+      inputEndMarker.style.left = `${percent}%`;
+      updateActiveHighlight();
     }
   </script>
 </body>
